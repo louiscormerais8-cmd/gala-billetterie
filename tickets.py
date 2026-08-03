@@ -93,7 +93,7 @@ def build_ticket_pdf_bytes(prenom, nom, categorie, token):
     """Genere un PDF de billet (une page) en memoire, pret a etre joint a un email."""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
-    qr_img = make_qr_image(f"GALA:{token}", fill_color=tuple(int(v * 255) for v in GOLD), back_color=tuple(int(v * 255) for v in NAVY))
+    qr_img = make_qr_image(f"GALA:{token}", fill_color="black", back_color=tuple(int(v * 255) for v in NAVY))
     draw_ticket(c, prenom, nom, categorie, qr_img)
     c.save()
     buf.seek(0)
@@ -106,7 +106,7 @@ def build_multi_ticket_pdf_bytes(tickets):
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     for prenom, nom, categorie, token in tickets:
-        qr_img = make_qr_image(f"GALA:{token}", fill_color=tuple(int(v * 255) for v in GOLD), back_color=tuple(int(v * 255) for v in NAVY))
+        qr_img = make_qr_image(f"GALA:{token}", fill_color="black", back_color=tuple(int(v * 255) for v in NAVY))
         draw_ticket(c, prenom, nom, categorie, qr_img)
         c.showPage()
     c.save()
