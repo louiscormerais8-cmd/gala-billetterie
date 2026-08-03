@@ -1,57 +1,99 @@
 """Generation du QR code et du PDF de billet (module partage)."""
 import io
+import os
 
 import qrcode
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 EVENT_NAME = "Gala ISMIN"
 EVENT_DATE = "28 novembre 2026"
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_PATH = os.path.join(BASE_DIR, "ticket_template.png")
+TEMPLATE_PX_SIZE = (1240, 1748)  # dimensions du visuel Canva (A4 a 150dpi)
 
-def make_qr_image(payload):
-    qr = qrcode.QRCode(border=2, box_size=8)
+# Position du carre QR et de la zone nom, releves par echantillonnage de pixels
+# sur le visuel (voir outils de mesure utilises lors de l'integration).
+QR_SQUARE_PX = {"left": 317, "right": 923, "top": 650, "bottom": 1250}
+NAME_Y_PX = 1340
+
+GOLD = (216 / 255, 170 / 255, 60 / 255)
+NAVY = (7 / 255, 26 / 255, 76 / 255)
+
+_scale_x = A4[0] / TEMPLATE_PX_SIZE[0]
+_scale_y = A4[1] / TEMPLATE_PX_SIZE[1]
+
+
+def _px_to_pt(px, py):
+    return px * _scale_x, A4[1] - py * _scale_y
+
+
+def make_qr_image(payload, fill_color="black", back_color="white"):
+    qr = qrcode.QRCode(
+        border=2, box_size=8, error_correction=qrcode.constants.ERROR_CORRECT_H
+    )
     qr.add_data(payload)
     qr.make(fit=True)
-    return qr.make_image(fill_color="black", back_color="white")
+    return qr.make_image(fill_color=fill_color, back_color=back_color)
 
 
-def draw_ticket(c, prenom, nom, categorie, qr_img):
+def draw_ticket(c, prenom, nom, categorie, qr_img_gold):
     width, height = A4
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(width / 2, height - 40 * mm, EVENT_NAME)
-    c.setFont("Helvetica", 12)
-    c.drawCentredString(width / 2, height - 48 * mm, EVENT_DATE)
 
-    c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(width / 2, height - 70 * mm, f"{prenom} {nom}")
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(width / 2, height - 78 * mm, f"Categorie : {categorie}")
+    has_template = os.path.exists(TEMPLATE_PATH)
+    if has_template:
+        c.drawImage(TEMPLATE_PATH, 0, 0, width=width, height=height)
+    else:
+        # Repli simple si le visuel n'est pas encore fourni.
+        c.setFillColorRGB(*NAVY)
+        c.rect(0, 0, width, height, fill=1, stroke=0)
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(width / 2, height - 40 * 2.8346, EVENT_NAME)
+        c.setFont("Helvetica", 12)
+        c.drawCentredString(width / 2, height - 48 * 2.8346, EVENT_DATE)
+
+    left_pt, top_pt = _px_to_pt(QR_SQUARE_PX["left"], QR_SQUARE_PX["top"])
+    right_pt, bottom_pt = _px_to_pt(QR_SQUARE_PX["right"], QR_SQUARE_PX["bottom"])
+    square_w = right_pt - left_pt
+    square_h = top_pt - bottom_pt
+    center_x = left_pt + square_w / 2
+    center_y = bottom_pt + square_h / 2
+
+    padding = 20
+    qr_size = min(square_w, square_h) - 2 * padding
 
     buf = io.BytesIO()
-    qr_img.save(buf, format="PNG")
+    qr_img_gold.save(buf, format="PNG")
     buf.seek(0)
-    qr_size = 70 * mm
     c.drawImage(
         ImageReader(buf),
-        (width - qr_size) / 2,
-        height - 78 * mm - qr_size - 15 * mm,
+        center_x - qr_size / 2,
+        center_y - qr_size / 2,
         width=qr_size,
         height=qr_size,
     )
-    c.setFont("Helvetica-Oblique", 9)
+
+    _, name_y = _px_to_pt(0, NAME_Y_PX)
+    c.setFillColorRGB(*GOLD)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(width / 2, name_y, f"{prenom} {nom}")
+
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica", 9)
     c.drawCentredString(
-        width / 2, 20 * mm, "Billet personnel et non cessible - un seul scan valide a l'entree."
+        width / 2, 18, "Billet personnel et non cessible - un seul scan valide a l'entree."
     )
+    c.setFillColorRGB(0, 0, 0)
 
 
 def build_ticket_pdf_bytes(prenom, nom, categorie, token):
     """Genere un PDF de billet (une page) en memoire, pret a etre joint a un email."""
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
-    qr_img = make_qr_image(f"GALA:{token}")
+    qr_img = make_qr_image(f"GALA:{token}", fill_color=tuple(int(v * 255) for v in GOLD), back_color=tuple(int(v * 255) for v in NAVY))
     draw_ticket(c, prenom, nom, categorie, qr_img)
     c.save()
     buf.seek(0)
@@ -64,7 +106,7 @@ def build_multi_ticket_pdf_bytes(tickets):
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     for prenom, nom, categorie, token in tickets:
-        qr_img = make_qr_image(f"GALA:{token}")
+        qr_img = make_qr_image(f"GALA:{token}", fill_color=tuple(int(v * 255) for v in GOLD), back_color=tuple(int(v * 255) for v in NAVY))
         draw_ticket(c, prenom, nom, categorie, qr_img)
         c.showPage()
     c.save()
