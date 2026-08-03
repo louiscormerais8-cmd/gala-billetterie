@@ -1,0 +1,8 @@
+flask
+qrcode[pil]
+reportlab
+opencv-python-headless
+numpy
+stripe
+requests
+python-dotenv
