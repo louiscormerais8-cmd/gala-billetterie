@@ -31,13 +31,35 @@ def get_db():
     return conn
 
 
+def _table_sql(conn, table_name):
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table_name,)
+    ).fetchone()
+    return row["sql"] if row else None
+
+
 def init_db():
     conn = get_db()
     conn.executescript(SCHEMA)
+
     # migration douce si une ancienne base sans la colonne "type" existe deja
     cols = [row["name"] for row in conn.execute("PRAGMA table_info(guests)")]
     if "type" not in cols:
         conn.execute("ALTER TABLE guests ADD COLUMN type TEXT NOT NULL DEFAULT 'individuel'")
+        cols.append("type")
+
+    # migration : les anciennes bases avaient stripe_session_id UNIQUE, ce qui
+    # empeche desormais de creer plusieurs billets pour une meme commande.
+    # SQLite ne permet pas de retirer une contrainte via ALTER TABLE, il faut
+    # recreer la table.
+    existing_sql = _table_sql(conn, "guests") or ""
+    if "stripe_session_id TEXT UNIQUE" in existing_sql or "stripe_session_id TEXT  UNIQUE" in existing_sql:
+        conn.executescript("ALTER TABLE guests RENAME TO guests_old;")
+        conn.executescript(SCHEMA)
+        col_list = ", ".join(cols)
+        conn.execute(f"INSERT INTO guests ({col_list}) SELECT {col_list} FROM guests_old")
+        conn.executescript("DROP TABLE guests_old;")
+
     conn.commit()
     conn.close()
 
