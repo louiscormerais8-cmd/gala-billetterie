@@ -12,12 +12,13 @@ import io
 import os
 from datetime import datetime
 from functools import wraps
+from pathlib import Path
 
 import stripe
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, redirect, request, send_file
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import db
 import email_utils
