@@ -7,8 +7,8 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-EVENT_NAME = "Gala 2026"
-EVENT_DATE = "A definir"
+EVENT_NAME = "Gala ISMIN"
+EVENT_DATE = "28 novembre 2026"
 
 
 def make_qr_image(payload):
@@ -53,6 +53,20 @@ def build_ticket_pdf_bytes(prenom, nom, categorie, token):
     c = canvas.Canvas(buf, pagesize=A4)
     qr_img = make_qr_image(f"GALA:{token}")
     draw_ticket(c, prenom, nom, categorie, qr_img)
+    c.save()
+    buf.seek(0)
+    return buf.read()
+
+
+def build_multi_ticket_pdf_bytes(tickets):
+    """Genere un seul PDF (une page par billet) pour une commande de plusieurs places.
+    tickets: liste de tuples (prenom, nom, categorie, token)."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    for prenom, nom, categorie, token in tickets:
+        qr_img = make_qr_image(f"GALA:{token}")
+        draw_ticket(c, prenom, nom, categorie, qr_img)
+        c.showPage()
     c.save()
     buf.seek(0)
     return buf.read()

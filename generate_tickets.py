@@ -51,7 +51,7 @@ def main():
                 reused += 1
             else:
                 token = secrets.token_urlsafe(8)
-                db.create_guest(conn, prenom, nom, email, categorie, token, payment_status="invite")
+                db.create_guest(conn, prenom, nom, email, categorie, token, payment_status="invite", type_="invite")
                 created += 1
 
             pdf_bytes = build_ticket_pdf_bytes(prenom, nom, categorie, token)
