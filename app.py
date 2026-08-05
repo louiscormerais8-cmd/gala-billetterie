@@ -29,7 +29,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import db
 import email_utils
-from tickets import build_multi_ticket_pdf_bytes, make_qr_image  # noqa: F401 (make_qr_image utilise par generate_tickets.py)
+from tickets import build_multi_ticket_pdf_bytes
 
 try:
     import cv2
