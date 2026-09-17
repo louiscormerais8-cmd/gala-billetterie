@@ -64,6 +64,10 @@ PACKS = {
     "pack4": {"label": "Pack Alumni 4 places", "size": 4, "price_cents": 26000},
 }
 
+EVENING_LABEL = "Place soiree uniquement"
+EVENING_PRICE_CENTS = 1000
+MAX_EVENING_QTY = 5
+
 qr_detector = cv2.QRCodeDetector() if SCAN_ENABLED else None
 
 db.init_db()
@@ -104,6 +108,7 @@ def compute_individual_prices(already_sold, qty):
 def purchase_page(error=None):
     error_html = f'<p class="error">{error}</p>' if error else ""
     qty_options = "".join(f'<option value="{i}">{i}</option>' for i in range(1, MAX_INDIVIDUAL_QTY + 1))
+    evening_qty_options = "".join(f'<option value="{i}">{i}</option>' for i in range(1, MAX_EVENING_QTY + 1))
 
     def pack_fields(key, size):
         fields = ""
@@ -153,6 +158,7 @@ def purchase_page(error=None):
     <form method="post" action="/acheter">
 
       <label class="choice"><input type="radio" name="type_billet" value="individuel" checked> Place(s) individuelle(s) - prix degressif selon disponibilite</label>
+      <label class="choice"><input type="radio" name="type_billet" value="soiree"> Place(s) soiree uniquement - 10,00 EUR</label>
       <label class="choice"><input type="radio" name="type_billet" value="pack3"> Pack Alumni 3 places - 210,00 EUR</label>
       <label class="choice"><input type="radio" name="type_billet" value="pack4"> Pack Alumni 4 places - 260,00 EUR</label>
 
@@ -166,6 +172,17 @@ def purchase_page(error=None):
         <label>Nombre de places</label>
         <select name="individuel_quantite" id="quantite">{qty_options}</select>
         <div id="prix-estime">Calcul du prix...</div>
+      </div>
+
+      <div id="section-soiree" class="section">
+        <label>Prenom (acheteur)</label>
+        <input type="text" name="soiree_prenom">
+        <label>Nom (acheteur)</label>
+        <input type="text" name="soiree_nom">
+        <label>Email</label>
+        <input type="email" name="soiree_email">
+        <label>Nombre de places</label>
+        <select name="soiree_quantite">{evening_qty_options}</select>
       </div>
 
       <div id="section-pack3" class="section">
@@ -259,6 +276,28 @@ def acheter():
             "prices": ",".join(str(p) for p in prices),
         }
         product_name = f"{EVENT_NAME} - {qty} place(s) individuelle(s)"
+
+    elif type_billet == "soiree":
+        prenom = request.form.get("soiree_prenom", "").strip()
+        nom = request.form.get("soiree_nom", "").strip()
+        email = request.form.get("soiree_email", "").strip()
+        try:
+            qty = int(request.form.get("soiree_quantite", "1"))
+        except ValueError:
+            qty = 1
+        qty = max(1, min(MAX_EVENING_QTY, qty))
+
+        if not prenom or not nom or not email:
+            return Response(purchase_page("Merci de remplir tous les champs correctement."), mimetype="text/html")
+
+        total_cents = EVENING_PRICE_CENTS * qty
+        metadata = {
+            "order_type": "soiree",
+            "prenom": prenom,
+            "nom": nom,
+            "qty": str(qty),
+        }
+        product_name = f"{EVENT_NAME} - {qty} place(s) soiree uniquement"
 
     elif type_billet in PACKS:
         pack = PACKS[type_billet]
@@ -383,6 +422,16 @@ def fulfill_order(session):
         prices = [int(x) for x in prices_raw.split(",") if x]
         for price in prices:
             tickets_to_create.append((prenom, nom, "Place individuelle", price, "individuel"))
+
+    elif order_type == "soiree":
+        prenom = sget(metadata, "prenom", "Invite")
+        nom = sget(metadata, "nom", "")
+        try:
+            qty = int(sget(metadata, "qty", "1"))
+        except ValueError:
+            qty = 1
+        for _ in range(qty):
+            tickets_to_create.append((prenom, nom, EVENING_LABEL, EVENING_PRICE_CENTS, "soiree"))
 
     elif order_type in PACKS:
         pack = PACKS[order_type]
