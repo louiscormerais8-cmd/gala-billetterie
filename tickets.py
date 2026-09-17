@@ -91,6 +91,9 @@ def draw_ticket(c, prenom, nom, categorie, qr_img):
     c.setFont("Helvetica-Bold", 20)
     c.drawCentredString(width / 2, name_y, f"{prenom} {nom}")
 
+    c.setFont("Helvetica", 12)
+    c.drawCentredString(width / 2, name_y - 20, categorie)
+
     c.setFillColorRGB(1, 1, 1)
     c.setFont("Helvetica", 9)
     c.drawCentredString(
