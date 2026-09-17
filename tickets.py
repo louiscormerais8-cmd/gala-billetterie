@@ -19,7 +19,7 @@ TEMPLATE_PX_SIZE = (1240, 1748)  # dimensions du visuel Canva (A4 a 150dpi)
 QR_SQUARE_PX = {"left": 317, "right": 923, "top": 650, "bottom": 1250}
 NAME_Y_PX = 1340
 
-SILVER = (190 / 255, 190 / 255, 196 / 255)  # utilise pour le texte du nom
+SILVER = (204 / 255, 167 / 255, 68 / 255)  # dore, utilise pour le texte du nom et les mentions
 FALLBACK_BG = (24 / 255, 23 / 255, 91 / 255)  # utilise seulement si le visuel est absent
 
 _scale_x = A4[0] / TEMPLATE_PX_SIZE[0]
@@ -94,7 +94,7 @@ def draw_ticket(c, prenom, nom, categorie, qr_img):
     c.setFont("Helvetica", 12)
     c.drawCentredString(width / 2, name_y - 20, categorie)
 
-    c.setFillColorRGB(1, 1, 1)
+    c.setFillColorRGB(*SILVER)
     c.setFont("Helvetica", 9)
     c.drawCentredString(
         width / 2, 18, "Billet personnel et non cessible - un seul scan valide a l'entree."
