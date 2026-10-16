@@ -5,7 +5,7 @@ du/des billet(s) par email, page d'administration et scan d'entree.
 Tarification :
 - Places individuelles : prix degressif par palier selon le nombre deja vendu
   (jusqu'a 5 places par commande, un seul nom acheteur pour toutes).
-- Packs Alumni (3 ou 4 places) : prix fixe, nominatif (un nom par place),
+- Packs familiaux (3 ou 4 places) : prix fixe, nominatif (un nom par place),
   1 pack par commande.
 
 Variables d'environnement requises (voir .env.example) :
@@ -60,8 +60,8 @@ LAST_TIER_PRICE = PRICING_TIERS[-1][1]
 MAX_INDIVIDUAL_QTY = 5
 
 PACKS = {
-    "pack3": {"label": "Pack Alumni 3 places", "size": 3, "price_cents": 21000},
-    "pack4": {"label": "Pack Alumni 4 places", "size": 4, "price_cents": 26000},
+    "pack3": {"label": "Pack familial 3 places", "size": 3, "price_cents": 21000},
+    "pack4": {"label": "Pack familial 4 places", "size": 4, "price_cents": 26000},
 }
 
 EVENING_LABEL = "Place soiree uniquement"
@@ -159,8 +159,8 @@ def purchase_page(error=None):
 
       <label class="choice"><input type="radio" name="type_billet" value="individuel" checked> Place(s) individuelle(s) - prix degressif selon disponibilite</label>
       <label class="choice"><input type="radio" name="type_billet" value="soiree"> Place(s) soiree uniquement - 10,00 EUR</label>
-      <label class="choice"><input type="radio" name="type_billet" value="pack3"> Pack Alumni 3 places - 210,00 EUR</label>
-      <label class="choice"><input type="radio" name="type_billet" value="pack4"> Pack Alumni 4 places - 260,00 EUR</label>
+      <label class="choice"><input type="radio" name="type_billet" value="pack3"> Pack familial 3 places - 210,00 EUR</label>
+      <label class="choice"><input type="radio" name="type_billet" value="pack4"> Pack familial 4 places - 260,00 EUR</label>
 
       <div id="section-individuel" class="section active">
         <label>Prenom (acheteur)</label>
