@@ -7,6 +7,8 @@ Tarification :
   (jusqu'a 5 places par commande, un seul nom acheteur pour toutes).
 - Packs familiaux (3, 4 ou 5 places) : prix fixe, nominatif (un nom par place),
   1 pack par commande.
+- Place "administration ecole" : prix fixe reduit, 1 place nominative par commande,
+  l'identite est verifiee a l'entree.
 
 Variables d'environnement requises (voir .env.example) :
   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, BREVO_API_KEY, SENDER_EMAIL,
@@ -68,6 +70,9 @@ PACKS = {
 EVENING_LABEL = "Place soiree uniquement"
 EVENING_PRICE_CENTS = 1000
 MAX_EVENING_QTY = 5
+
+ADMIN_LABEL = "EXCLUSIF administration ecole (identite verifiee a l'entree)"
+ADMIN_PRICE_CENTS = 4000
 
 qr_detector = cv2.QRCodeDetector() if SCAN_ENABLED else None
 
@@ -160,6 +165,7 @@ def purchase_page(error=None):
 
       <label class="choice"><input type="radio" name="type_billet" value="individuel" checked> Place(s) individuelle(s) - prix degressif selon disponibilite</label>
       <label class="choice"><input type="radio" name="type_billet" value="soiree"> Place(s) soiree uniquement - 10,00 EUR</label>
+      <label class="choice"><input type="radio" name="type_billet" value="administration"> EXCLUSIF administration ecole - 40,00 EUR (identite verifiee a l'entree)</label>
       <label class="choice"><input type="radio" name="type_billet" value="pack3"> Pack familial 3 places - 210,00 EUR</label>
       <label class="choice"><input type="radio" name="type_billet" value="pack4"> Pack familial 4 places - 260,00 EUR</label>
       <label class="choice"><input type="radio" name="type_billet" value="pack5"> Pack familial 5 places - 325,00 EUR</label>
@@ -185,6 +191,16 @@ def purchase_page(error=None):
         <input type="email" name="soiree_email">
         <label>Nombre de places</label>
         <select name="soiree_quantite">{evening_qty_options}</select>
+      </div>
+
+      <div id="section-administration" class="section">
+        <p>Place reservee au personnel de l'administration de l'ecole, 1 place par personne. Une piece d'identite ou un badge sera demande a l'entree : sans justificatif, le complement au plein tarif sera exige.</p>
+        <label>Prenom</label>
+        <input type="text" name="administration_prenom">
+        <label>Nom</label>
+        <input type="text" name="administration_nom">
+        <label>Email</label>
+        <input type="email" name="administration_email">
       </div>
 
       <div id="section-pack3" class="section">
@@ -307,6 +323,22 @@ def acheter():
             "qty": str(qty),
         }
         product_name = f"{EVENT_NAME} - {qty} place(s) soiree uniquement"
+
+    elif type_billet == "administration":
+        prenom = request.form.get("administration_prenom", "").strip()
+        nom = request.form.get("administration_nom", "").strip()
+        email = request.form.get("administration_email", "").strip()
+
+        if not prenom or not nom or not email:
+            return Response(purchase_page("Merci de remplir tous les champs correctement."), mimetype="text/html")
+
+        total_cents = ADMIN_PRICE_CENTS
+        metadata = {
+            "order_type": "administration",
+            "prenom": prenom,
+            "nom": nom,
+        }
+        product_name = f"{EVENT_NAME} - place administration ecole"
 
     elif type_billet in PACKS:
         pack = PACKS[type_billet]
@@ -441,6 +473,11 @@ def fulfill_order(session):
             qty = 1
         for _ in range(qty):
             tickets_to_create.append((prenom, nom, EVENING_LABEL, EVENING_PRICE_CENTS, "soiree"))
+
+    elif order_type == "administration":
+        prenom = sget(metadata, "prenom", "Invite")
+        nom = sget(metadata, "nom", "")
+        tickets_to_create.append((prenom, nom, ADMIN_LABEL, ADMIN_PRICE_CENTS, "administration"))
 
     elif order_type in PACKS:
         pack = PACKS[order_type]
