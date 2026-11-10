@@ -19,7 +19,7 @@ import csv
 import io
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 
@@ -70,6 +70,36 @@ PACKS = {
 EVENING_LABEL = "Place soiree uniquement"
 EVENING_PRICE_CENTS = 1000
 MAX_EVENING_QTY = 5
+
+try:
+    from zoneinfo import ZoneInfo
+    _PARIS = ZoneInfo("Europe/Paris")
+except Exception:
+    _PARIS = timezone(timedelta(hours=1))  # heure d'hiver, valable en novembre
+
+# Fermeture automatique de la vente : plus aucun achat possible apres cet instant.
+# Les paiements deja ouverts sur Stripe restent traites (le webhook continue de marcher).
+SALES_CLOSE_AT = datetime(2026, 11, 12, 20, 0, tzinfo=_PARIS)
+
+
+def sales_open():
+    return datetime.now(_PARIS) < SALES_CLOSE_AT
+
+
+def closed_page():
+    return f"""
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{EVENT_NAME} - Billetterie fermee</title>
+<style>body{{font-family:-apple-system,Arial,sans-serif;background:#0d0d12;color:#f2f2f2;
+text-align:center;padding:60px 16px;}}</style></head><body>
+<h1>{EVENT_NAME}</h1>
+<p>La billetterie est maintenant fermee. Merci a tous pour votre soutien !</p>
+<p>Rendez-vous le 28 novembre 2026.</p>
+</body></html>
+"""
+
 
 ADMIN_LABEL = "EXCLUSIF administration ecole (identite verifiee a l'entree)"
 ADMIN_PRICE_CENTS = 4000
@@ -254,6 +284,8 @@ updatePrix();
 
 @app.route("/")
 def index():
+    if not sales_open():
+        return Response(closed_page(), mimetype="text/html")
     return Response(purchase_page(), mimetype="text/html")
 
 
@@ -273,6 +305,9 @@ def prix_actuel():
 
 @app.route("/acheter", methods=["POST"])
 def acheter():
+    if not sales_open():
+        return Response(closed_page(), mimetype="text/html")
+
     type_billet = request.form.get("type_billet", "individuel")
 
     if type_billet == "individuel":
